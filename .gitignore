@@ -23,3 +23,6 @@ feature_repo/data/online_store.db
 # --- IDE Settings ---
 .vscode/
 .idea/
+
+# --- Old Run --- 
+legacy
