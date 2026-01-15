@@ -1,0 +1,25 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.log
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints
+
+# --- Environment Variables ---
+.env
+
+# --- Feast & MLOps Data ---
+feature_repo/data/registry.db
+feature_repo/data/online_store.db
+.feast/
+
+# --- IDE Settings ---
+.vscode/
+.idea/
