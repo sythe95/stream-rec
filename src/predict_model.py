@@ -48,37 +48,43 @@ def predict(request: PredictionRequest):
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     try:
-        print(f"🔮 Fetching Online Features for User ID: {request.user_id}")
-        
-        # 1. Get features from Redis
-        feature_vector = store.get_online_features(
+        # 1. Get features from Feast (Redis)
+        response = store.get_online_features(
             features=[
                 "user_stats:total_ratings",
                 "user_stats:avg_rating"
             ],
             entity_rows=[{"user_id": request.user_id}]
-        ).to_dict()
+        )
         
-        features_df = pd.DataFrame.from_dict(feature_vector)
+        # 2. Convert to dictionary
+        feature_vector = response.to_dict()
         
-        # 2. Check if user exists
-        if features_df["total_ratings"].iloc[0] is None:
-            return {"status": "error", "message": "User not found in Feature Store (Redis)"}
+        # 3. Strip any Feast prefixes ('user_stats:avg_rating' -> 'avg_rating')
+        clean_features = {}
+        for key, value in feature_vector.items():
+            clean_key = key.split(":")[-1] 
+            clean_features[clean_key] = value
 
-        # 3. Clean Data (Drop ID column so it matches training shape)
-        model_input = features_df.drop(columns=["user_id"])
+        # 4. Create DataFrame and FORCE exact columns and order
+        expected_columns = ["total_ratings", "avg_rating"]
+        
+        # If total_ratings is missing or None, the user isn't in Redis yet
+        if not clean_features.get("total_ratings") or clean_features["total_ratings"][0] is None:
+            return {"status": "error", "message": "User not found in Feature Store"}
 
-        # 4. Predict
+        # Lock in the exact columns Scikit-Learn expects
+        model_input = pd.DataFrame(clean_features)[expected_columns]
+
+        # 5. Predict
         prediction = loaded_model.predict(model_input)
         result = float(prediction[0])
         
         return {
             "user_id": request.user_id,
-            "features_fetched": feature_vector,
             "predicted_rating": round(result, 2),
             "status": "success"
         }
 
     except Exception as e:
-        print(f"❌ Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -14,11 +14,15 @@ venv/
 
 # --- Environment Variables ---
 .env
+metadata.yaml
+.ssh_tunnel/
 
 # --- Feast & MLOps Data ---
 feature_repo/data/registry.db
 feature_repo/data/online_store.db
 .feast/
+mage_data/
+
 
 # --- IDE Settings ---
 .vscode/
