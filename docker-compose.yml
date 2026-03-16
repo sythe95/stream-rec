@@ -56,24 +56,24 @@ services:
       --default-artifact-root s3://${MINIO_BUCKET_NAME}/ 
       --host 0.0.0.0"
 
-  # 5. MAGE (Orchestrator)
-  mage:
-    image: mageai/mageai:latest
-    container_name: stream_rec_mage
-    ports:
-      - "6789:6789"
-    volumes:
-      - .:/home/src
-    environment:
-      USER_CODE_PATH: /home/src
-      PROJECT_NAME: my_mlops_project
+  # # 5. MAGE (Orchestrator)
+  # mage:
+  #   image: mageai/mageai:latest
+  #   container_name: stream_rec_mage
+  #   ports:
+  #     - "6789:6789"
+  #   volumes:
+  #     - .:/home/src
+  #   environment:
+  #     USER_CODE_PATH: /home/src
+  #     PROJECT_NAME: my_mlops_project
 
-  # 6. PREDICTION API (The New Service)
-  prediction_api:
+  # 6. INFERENCE API
+  inference_api:
     build:
-      context: ./src
+      context: ./services/inference_api
       dockerfile: Dockerfile
-    container_name: stream_rec_api
+    container_name: stream_rec_inference_api
     ports:
       - "8000:8000"
     environment:
@@ -89,8 +89,34 @@ services:
     depends_on:
       - mlflow
       - minio
+      - redis
     volumes:
       - ./feature_repo:/app/feature_repo
+      - ./training:/app/training
+
+  # 7. STREAM PROCESSOR
+  stream_processor:
+    build:
+      context: ./services/stream_processor
+      dockerfile: Dockerfile
+    container_name: stream_rec_stream_processor
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redpanda
+      - redis
+    volumes:
+      - ./feature_repo:/app/feature_repo
+
+  # 8. EVENT SIMULATOR
+  event_simulator:
+    build:
+      context: ./services/event_simulator
+      dockerfile: Dockerfile
+    container_name: stream_rec_event_simulator
+    depends_on:
+      - redpanda
 
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
@@ -109,7 +135,29 @@ services:
       - "9092:9092"
       - "29092:29092"
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: stream_rec_prometheus
+    volumes:
+      # Mount the config file we just created into the container
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: stream_rec_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+
 volumes:
+  grafana_data:
   postgres_data:
   minio_data:
   redis_data:

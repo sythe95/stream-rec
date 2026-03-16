@@ -79,20 +79,39 @@ bucket_name = os.getenv("MINIO_BUCKET_NAME", "stream-rec")
 ensure_bucket_exists(bucket_name)
 
 # ==========================================
-# 3. FETCH DATA (FEAST)
+# 3. GENERATE OFFLINE DATA & FETCH (FEAST)
 # ==========================================
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# If running in Docker, feature_repo is usually mapped at /app/feature_repo
-# If running on Windows, it's relative to this script
-repo_path = os.path.join(current_dir, "..", "feature_repo")
+
+if os.path.exists("/app/feature_repo"):
+    repo_path = "/app/feature_repo"
+else:
+    repo_path = os.path.join(current_dir, "..", "feature_repo")
+
+# --- THE FIX: Force-generate the Parquet file so Dask has a valid table to join ---
+data_dir = os.path.join(repo_path, "data")
+os.makedirs(data_dir, exist_ok=True)
+parquet_path = os.path.join(data_dir, "user_stats.parquet")
+
+print(f"\n📁 Verifying offline feature data at: {parquet_path}")
+# Create historical features from exactly 1 day ago
+historical_data = pd.DataFrame({
+    "user_id": pd.Series([1, 2, 3, 4, 5], dtype="int64"),
+    "event_timestamp": pd.to_datetime([pd.Timestamp.now() - pd.Timedelta(days=1)] * 5), 
+    "total_ratings": pd.Series([10, 25, 5, 100, 42], dtype="int64"),
+    "avg_rating": pd.Series([4.5, 3.8, 2.1, 4.9, 3.9], dtype="float32")
+})
+historical_data.to_parquet(parquet_path)
+print("   ✅ Offline Parquet file generated.")
 
 store = FeatureStore(repo_path=repo_path)
 
 print("\n📊 Fetching historical features from Feast...")
-entity_df = pd.DataFrame.from_dict({
-    "user_id": [1, 2, 3, 4, 5],
-    "event_timestamp": [pd.Timestamp.now() for _ in range(5)],
-    "target_next_rating": [4.8, 3.5, 2.0, 4.9, 4.0] 
+# Entity timestamps must be from NOW so the PIT join looks backward and finds yesterday's features
+entity_df = pd.DataFrame({
+    "user_id": pd.Series([1, 2, 3, 4, 5], dtype="int64"),
+    "event_timestamp": pd.to_datetime([pd.Timestamp.now()] * 5), 
+    "target_next_rating": pd.Series([4.8, 3.5, 2.0, 4.9, 4.0], dtype="float64") 
 })
 
 try:
@@ -106,6 +125,7 @@ try:
 
     # Clean data
     training_df = training_df.drop(columns=["event_timestamp"])
+    training_df.fillna(0, inplace=True) 
     print(f"   ✅ Data loaded. Shape: {training_df.shape}")
 
     # ==========================================
@@ -118,28 +138,28 @@ try:
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     with mlflow.start_run():
-        # A. Train
         model = LinearRegression()
         model.fit(X_train, y_train)
         
-        # B. Evaluate
         predictions = model.predict(X_test)
         mse = mean_squared_error(y_test, predictions)
         print(f"   📉 Mean Squared Error: {mse}")
         
-        # C. Log Metrics
         mlflow.log_param("model_type", "LinearRegression")
         mlflow.log_metric("mse", mse)
         
-        # D. Log Model (Upload to MinIO)
-        print("📤 Uploading model to MinIO...")
+        print("📤 Uploading model artifact to MinIO...")
         mlflow.sklearn.log_model(
             sk_model=model, 
-            artifact_path="recommender_model",
-            registered_model_name="rec_model_v1"
+            artifact_path="recommender_model"
         )
         
-        print("\n✨ SUCCESS! Model saved to MLflow.")
+        print("📝 Registering model in MLflow Registry...")
+        run_id = mlflow.active_run().info.run_id
+        model_uri = f"runs:/{run_id}/recommender_model"
+        mlflow.register_model(model_uri=model_uri, name="rec_model_v1")
+        
+        print("\n✨ SUCCESS! Model saved and registered to MLflow.")
 
 except Exception as e:
     print(f"\n❌ Error during training/feature retrieval: {e}")

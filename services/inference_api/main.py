@@ -5,6 +5,7 @@ from feast import FeatureStore
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # 1. CONFIGURATION
 load_dotenv()
@@ -18,6 +19,9 @@ os.environ["MLFLOW_S3_IGNORE_TLS"] = "true"
 os.environ["MLFLOW_S3_ENDPOINT_URL"] = MINIO_ENDPOINT
 
 app = FastAPI(title="StreamRec Inference API")
+
+# This automatically tracks HTTP requests and exposes a /metrics endpoint
+Instrumentator().instrument(app).expose(app)
 
 # 2. LOAD RESOURCES
 print("🚀 Connecting to Feature Store...")
