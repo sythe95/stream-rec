@@ -1,4 +1,4 @@
-me: StreamRec CI Pipeline
+name: StreamRec CI Pipeline
 
 # 1. When should this pipeline run?
 on:
