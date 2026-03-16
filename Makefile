@@ -1,36 +1,21 @@
-# 🚀 StreamRec 2.0 Quick Commands
+# 🚀 StreamRec 3.0 CLI
 
-# Define the container engine so it works natively without relying on aliases
-ENGINE ?= podman
-COMPOSE ?= podman-compose
+ENGINE ?= docker
+COMPOSE ?= docker compose
 
-.PHONY: up down train producer consumer sync restart
+.PHONY: up down train logs restart
 
-# Bring up the whole infrastructure
 up:
-	$(COMPOSE) --env-file .env up -d
+	$(COMPOSE) --env-file .env up -d --build
 
-# Tear down the infrastructure
 down:
-	$(COMPOSE) down
+	$(COMPOSE) down -v
 
-# Run the Feast feature extraction and MLflow training script
 train:
-	$(ENGINE) exec stream_rec_api python train_model.py
+	$(ENGINE) exec -it stream_rec_inference_api bash -c "cd feature_repo && feast apply && cd .. && python -u training/train.py"
 
-# Start generating fake live user traffic
-producer:
-	python3 src/producer.py
+logs:
+	$(COMPOSE) logs -f stream_processor event_simulator inference_api
 
-# Start the stream processor to catch ratings
-consumer:
-	$(ENGINE) exec -it stream_rec_api python -u consumer.py
-
-# Quickly sync your local Windows scripts into the running container
-sync:
-	$(ENGINE) cp src/predict_model.py stream_rec_api:/app/predict_model.py
-	$(ENGINE) cp src/consumer.py stream_rec_api:/app/consumer.py
-
-# Force restart the API container to clear memory and load new code
 restart:
-	$(ENGINE) restart stream_rec_api
+	$(ENGINE) restart stream_rec_inference_api

@@ -1,0 +1,38 @@
+name: StreamRec CI Pipeline
+
+# 1. When should this pipeline run?
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-verify:
+    # 2. What kind of server should GitHub rent for us?
+    runs-on: ubuntu-latest
+
+    steps:
+    # 3. Download your code onto the GitHub server
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 4. Set up Python
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    # 5. Check for fatal Python syntax errors
+    - name: Lint Python Code
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+        # This will crash the pipeline if you have major syntax errors
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    # 6. The Ultimate Test: Do your containers actually build?
+    - name: Verify Docker Compose Build
+      run: |
+        # This tells GitHub to try building your exact Dockerfile setup
+        docker compose build
