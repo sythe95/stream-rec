@@ -180,10 +180,6 @@ stream-rec/
 
 - **Developer Experience**  
   Common workflows are abstracted via `Makefile` commands
-
----
-
-> Note: If legacy directories (e.g., `src/`) exist, they are being phased out in favor of this service-oriented structure.
 ---
 
 ## 🚀 Quick Start
