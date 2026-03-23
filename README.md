@@ -27,6 +27,55 @@ The core philosophy of StreamRec:
 
 StreamRec 3.0 follows a **decoupled microservice architecture** orchestrated using Docker Compose. Each component is independently deployable and communicates through well-defined interfaces, enabling scalability, fault isolation, and easier extensibility.
 
+```mermaid
+graph TD
+     %% Data Sources
+    subgraph Data Sources
+        E[Event Simulator]
+        HD[(Historical Data / Parquet)]
+    end
+
+    %% Streaming Pipeline (Real-Time)
+    subgraph Streaming Pipeline
+        E -->|Live Events| K(Redpanda / Kafka)
+        K -->|Consume| S[Apache Spark Streaming]
+    end
+
+    %% Batch Pipeline (Offline)
+    subgraph Batch Pipeline & Training
+        HD -->|Train| T[Training Pipeline]
+        T -->|Log Metrics| ML[MLflow Registry + Postgres]
+        T -->|Save Artifacts| M[(MinIO Object Store)]
+    end
+
+    %% Feature Store
+    subgraph Feature Serving
+        S -->|Push Real-Time Features| F[(Feast + Redis Online Store)]
+        T -->|Materialize Baseline Features| F
+    end
+
+    %% Real-Time Inference
+    subgraph Real-Time Inference
+        API[FastAPI Prediction Service]
+        F -->|Fetch Latest Features| API
+        M -->|Load Model Weights| API
+        API -->|Serve Prediction| User((Client))
+    end
+
+    %% Observability
+    subgraph SRE & Observability
+        API -.->|Expose /metrics| P[Prometheus]
+        P --> G[Grafana Dashboards]
+    end
+
+    %% Apply Styles
+    class K,S stream;
+    class HD,T,ML batch;
+    class API,User serve;
+    class P,G obs;
+    class F,M storage;
+```
+
 | Component           | Technology              | Role                                                                 |
 |--------------------|------------------------|----------------------------------------------------------------------|
 | Message Broker     | Redpanda (Kafka API)   | High-throughput, low-latency event streaming backbone                |
