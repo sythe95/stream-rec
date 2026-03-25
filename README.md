@@ -23,6 +23,27 @@ The core philosophy of StreamRec:
 
 ---
 
+## 🎯 Real-World Problem
+
+Modern ML systems often fail in production due to stale features, lack of real-time updates, and poor observability.
+
+## 💡 What StreamRec Solves
+
+StreamRec enables real-time, production-grade ML pipelines that:
+- Continuously update features from live events
+- Serve low-latency predictions
+- Monitor system health with full observability
+
+---
+## 🧪 Example Use Case
+
+A recommendation system where:
+- User interactions stream in real time
+- Features update instantly (clicks, views, behavior)
+- Predictions adapt dynamically instead of relying on stale batch data
+
+---
+
 ## 🏗️ Architecture Overview
 
 StreamRec 3.0 follows a **decoupled microservice architecture** orchestrated using Docker Compose. Each component is independently deployable and communicates through well-defined interfaces, enabling scalability, fault isolation, and easier extensibility.
@@ -197,7 +218,11 @@ Dashboards are version-controlled under `dashboards/` and can be treated as **�
 This ensures StreamRec is not just functional, but **observable, debuggable, and production-aware**.
 
 ---
+## ⚡ Scope Flexibility
 
+While StreamRec demonstrates a full-scale architecture, individual components (e.g., streaming pipeline, feature store, or inference API) can be used independently depending on project needs.
+
+---
 ## 📂 Project Structure
 
 StreamRec 3.0 is organized as a **modular microservice-based repository**, where each component is isolated and independently deployable.
